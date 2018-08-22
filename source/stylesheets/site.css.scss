@@ -1,0 +1,22 @@
+// vendor
+@import 'vendor/scss/base';
+
+//variables
+@import 'variables';
+
+//base
+@import 'base';
+
+a {
+  color: rgba(#000, 0.7);
+
+  &:focus,
+  &:hover {
+    color: rgba(#000, 0.6);
+  }
+}
+
+.middleman-logo {
+  margin-bottom: 1rem;
+  width: 10rem;
+}
