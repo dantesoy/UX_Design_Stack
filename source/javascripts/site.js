@@ -297,8 +297,8 @@ Parser.parse(stackCsvPath).then(results => {
   const personsCategoriesHash = CsvDataToPersonsHashFormatter.format(csvData);
 
   // For a single person
-  const singleUser = personsCategoriesHash["dante@icalialabs.com"];
-  StackRenderer.renderUsername("dante@icalialabs.com");
+  const singleUser = personsCategoriesHash["ramiro@icalialabs.com"];
+  StackRenderer.renderUsername("ramiro@icalialabs.com");
 
   const categoriesKeys = Object.keys(singleUser.categories);
 
