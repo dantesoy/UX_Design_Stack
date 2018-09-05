@@ -34,7 +34,7 @@ class Utils {
 
 // -- Begin CsvToPersonHash --
 
-class CsvDataToPersonsHashFormatter {
+class CsvDataToTeammatesHashFormatter {
   constructor(csvData) {
     this.csvData = csvData;
     this.personsCategoriesHash = {};
@@ -58,7 +58,69 @@ class CsvDataToPersonsHashFormatter {
       this.calculateCategoriesAveragesForUser(user);
     });
 
+    this.calculateTeamAverage();
     return this.personsCategoriesHash;
+  }
+
+  calculateTeamAverage() {
+    const teamAverageKey = "Team Stack Average";
+    const personsNames = Object.keys(this.personsCategoriesHash);
+
+    this.addUserRow(teamAverageKey);
+
+    personsNames.forEach(personName => {
+      const personData = this.personsCategoriesHash[personName];
+
+      const categoriesKeys = Object.keys(personData["categories"]);
+
+      categoriesKeys.forEach(categoryKey => {
+        if (!this.hasUserCategory(teamAverageKey, categoryKey)) {
+          this.initializeCategoryToUser(teamAverageKey, categoryKey);
+        }
+
+        const subcategoriesKeys = Object.keys(
+          personData["categories"][categoryKey]
+        );
+
+        subcategoriesKeys.forEach(subcategoryKey => {
+          if (
+            !this.personsCategoriesHash[teamAverageKey]["categories"][
+              categoryKey
+            ][subcategoryKey]
+          ) {
+            this.personsCategoriesHash[teamAverageKey]["categories"][
+              categoryKey
+            ][subcategoryKey] = 0;
+          }
+          this.personsCategoriesHash[teamAverageKey]["categories"][categoryKey][
+            subcategoryKey
+          ] += personData["categories"][categoryKey][subcategoryKey];
+        });
+      });
+    });
+
+    const teamAverageData = this.personsCategoriesHash[teamAverageKey];
+
+    const categoriesKeys = Object.keys(teamAverageData["categories"]);
+
+    categoriesKeys.forEach(categoryKey => {
+      const subcategoriesKeys = Object.keys(
+        teamAverageData["categories"][categoryKey]
+      );
+
+      subcategoriesKeys.forEach(subcategoryKey => {
+        teamAverageData["categories"][categoryKey][subcategoryKey] /=
+          personsNames.length;
+
+        const average =
+          teamAverageData["categories"][categoryKey][subcategoryKey];
+        teamAverageData["categories"][categoryKey][subcategoryKey] = Math.round(
+          average
+        );
+      });
+    });
+
+    this.calculateCategoriesAveragesForUser(teamAverageKey);
   }
 
   addUserRow(user) {
@@ -278,8 +340,29 @@ class SpiderWebChart {
 // -- Begin StackRenderer --
 
 class StackRenderer {
-  static renderUsername(username) {
-    $("span#username").html(username);
+  static renderTeammateStack(teammateName, teammatesData) {
+    // For a single teammate
+    const teammateData = teammatesData[teammateName];
+    StackRenderer.renderUsername(teammateName);
+
+    const categoriesKeys = Object.keys(teammateData.categories);
+
+    StackRenderer.clearCategories();
+
+    categoriesKeys.forEach(categoryKey => {
+      StackRenderer.renderCategory(
+        categoryKey,
+        teammateData.categories[categoryKey]
+      );
+    });
+
+    $("#chart-container").highcharts(
+      SpiderWebChart.config(teammateData.categoriesAverages)
+    );
+  }
+
+  static renderUsername(teammateName) {
+    $("span#username").html(teammateName);
   }
 
   static renderCategory(categoryName, subCategoriesValues) {
@@ -287,31 +370,58 @@ class StackRenderer {
       CategoryHtmlContent.categoryRow(categoryName, subCategoriesValues)
     );
   }
+
+  static clearCategories() {
+    $("div#categories-container").html("");
+  }
 }
 // -- End StackRenderer --
+
+// -- Begin TeamSelectRenderer --
+
+class TeamSelectRenderer {
+  static addTeammatesOptions(teammates) {
+    teammates.forEach(teammate => {
+      $("#team-select").append(
+        $("<option>", {
+          value: teammate,
+          text: teammate
+        })
+      );
+    });
+
+    $("#team-select").val($("#team-select option:first").val());
+  }
+
+  static getSelectedTeammate() {
+    return $("#team-select").val();
+  }
+
+  static addOnChangeCallback(teammates) {
+    $("#team-select").change(() => {
+      const selectedTeammate = TeamSelectRenderer.getSelectedTeammate();
+      StackRenderer.renderTeammateStack(selectedTeammate, teammates);
+    });
+  }
+}
+// -- End TeamSelectRenderer --
 
 // -- Begin Main --
 
 Parser.parse(stackCsvPath).then(results => {
   const csvData = results.data;
-  const personsCategoriesHash = CsvDataToPersonsHashFormatter.format(csvData);
-
-  // For a single person
-  const singleUser = personsCategoriesHash["ramiro@icalialabs.com"];
-  StackRenderer.renderUsername("ramiro@icalialabs.com");
-
-  const categoriesKeys = Object.keys(singleUser.categories);
-
-  categoriesKeys.forEach(categoryKey => {
-    StackRenderer.renderCategory(
-      categoryKey,
-      singleUser.categories[categoryKey]
-    );
-  });
-
-  $("#chart-container").highcharts(
-    SpiderWebChart.config(singleUser.categoriesAverages)
+  const teammatesCategoriesData = CsvDataToTeammatesHashFormatter.format(
+    csvData
   );
+
+  // Add select options and select the first one.
+  const teammatesNames = Object.keys(teammatesCategoriesData);
+  TeamSelectRenderer.addTeammatesOptions(teammatesNames);
+  TeamSelectRenderer.addOnChangeCallback(teammatesCategoriesData);
+
+  // Display first
+  const selectedTeammate = TeamSelectRenderer.getSelectedTeammate();
+  StackRenderer.renderTeammateStack(selectedTeammate, teammatesCategoriesData);
 });
 
 // -- End Main --
